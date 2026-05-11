@@ -1,3 +1,8 @@
+========================
+No gold load was created but the data was inserted into a gold layer.
+Time constraints and recreation of the tables + data to insert resulted in the lack of load. However, this now more accurately matches the questions posed and enabled analytics as well as visuals.
+Future planning will prevent issues like this occuring.
+
 ---- previous gold tables didn't work with powerbi and relationships. Did not match star schema
 
 USE titanic;

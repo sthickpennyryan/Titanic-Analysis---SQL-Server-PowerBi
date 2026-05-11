@@ -1,1 +1,243 @@
+NOTE FOR ME:
+RECHECK THE EXPLANATION. IT MAY BE BETTER TO HIGHLIGHT IT HERE AS WELL
+
+
+/* 
+
+USE titanic;
+
+----------------------- GENDER_SUBMISSION CHECKS
+SELECT TOP 20 *
+FROM bronze.gender_submission;
+--- only has passenger ID and Survived
+--- both seem to be whole numbers
+--- Survived of 0-1, 1 being survived, 0 not -- CASE WHEN to change this for future bits
+
+WITH total_check AS (
+	SELECT 
+		PassengerID,
+		ROW_NUMBER() OVER (PARTITION BY PassengerID ORDER BY PassengerID) total
+	FROM bronze.gender_submission
+	)
+SELECT *
+FROM total_check
+WHERE total > 1;
+--- this would allow me to see specific rows, if duplicates occur. Also highlights if there are any duplicates 
+
+----- alternate
+SELECT *
+FROM (
+    SELECT 
+        PassengerID,
+        ROW_NUMBER() OVER (PARTITION BY PassengerID ORDER BY PassengerID) AS total
+    FROM bronze.gender_submission
+) t
+WHERE total > 1;
+--------
+
+---- simpliest to identify if duplicates
+SELECT PassengerID, COUNT(*) AS cnt
+FROM bronze.gender_submission
+GROUP BY PassengerID
+HAVING COUNT(*) > 1;
+------ figure which I want
+
+SELECT DISTINCT Survived
+FROM bronze.gender_submission
+--- only 0/1 for survived meaning did or did not. this can be moved into other tables if all are fine.
+
+----------------------- GENDER_SUBMISSION CHECKS
+
+
+
+-------------------- TEST CHECKS
+SELECT TOP 20 *
+FROM bronze.test;
+
+--- Initial viewing:
+--- NULL in Cabin and Age
+--- Embarked, need to see distinct counts of each of those
+--- Ticket style is inconsistant
+--- Age to 2dp has half for one, maybe more as this is limited. Likely remove dp and round down to reflect age at the time
+--- Sex is lower case, would want higher
+--- SibSp - # of siblings / spouses aboard 
+--- Parch # of parents / children aboard
+--- So person + sub + parch = total family/total peeps there
+--- Fare currently 4 dp as source was but this doesn't reflect actual money? Look at pay for the time and see if this tracks. If not, put as 2dp
+
+SELECT PassengerID, COUNT(*) duplicates
+FROM bronze.test
+GROUP BY PassengerID
+HAVING PassengerID < 1
+--- no duplicate passenger IDs here
+
+SELECT DISTINCT Pclass
+FROM bronze.test
+--- 3 distinct classes only
+
+SELECT Name, COUNT(*) duplicates
+FROM bronze.test
+GROUP BY Name
+HAVING Name < 1
+--- names are varchar, can't convert to int in it's current state
+
+SELECT DISTINCT Sex
+FROM bronze.test
+--- only 2. I want to make it capital though
+
+SELECT Age --- estimated ages are in the form of xx.5 so this would be an estimate - can just put it down
+FROM bronze.test
+WHERE Age IS NULL 
+--- shows us that there are nulls. 
+SELECT COUNT(*)
+FROM (
+SELECT Age
+FROM bronze.test
+WHERE Age IS NULL ) t
+--- updates the null check to see how many (86)
+
+SELECT DISTINCT SibSp
+FROM bronze.test
+--- Shows distinct values. nothing crazy high and no nulls
+
+SELECT DISTINCT Parch
+FROM bronze.test
+--- Shows distinct values. nothing crazy high and no nulls
+
+SELECT 
+	Ticket, 
+	COUNT(*) dup_count
+FROM bronze.test
+GROUP BY Ticket
+HAVING COUNT(*) > 1
+--- duplicates in the ticket #but not passenger ID. Is this people on the same ticket as siblings?
+
+SELECT *
+FROM (
+    SELECT
+		Name,
+        Ticket,
+        ROW_NUMBER() OVER (PARTITION BY Ticket ORDER BY Ticket) AS total
+    FROM bronze.test
+) t
+WHERE total > 1 
+--- AND SibSp OR Parch - total = 1 needed for it to see if these are duplicates or just relatives on the same ticket
+
+WITH relative_check AS (
+	SELECT 
+		   Name,
+		   SibSp,
+		   Parch,
+	       Ticket,
+		   ROW_NUMBER() OVER (PARTITION BY Ticket ORDER BY Ticket) AS total
+	FROM bronze.test
+	) 
+SELECT * FROM relative_check
+WHERE total > 1 
+AND 1 + SibSp + Parch != total
+--- this shows the tickets purchased where duplicate ticket numbers exist but the relatives + ticket purchiser does not = total of that ticket
+
+
+SELECT Fare, COUNT(*)
+FROM bronze.test
+GROUP BY Fare
+HAVING Fare IS NULL
+--- once instance where the fare is null - assumption of ticket being gifted or won. Changed fare to 0.00 to reflect free
+SELECT DISTINCT Fare
+FROM bronze.test
+--- fare changes drastically and there is a null + 0 so need to look into why for all
+
+SELECT DISTINCT CABIN
+FROM bronze.test
+--- NULLs identified. Format is ok but there are multiple cabins. It may be that ticket holders shared a cabin or relatives had cabins on same ticket
+
+SELECT DISTINCT Embarked
+FROM bronze.test
+--- Expecting 3. This needs to be case whened to full anames
+--- 3 as expected.
+
+-------------------- TEST CHECKS
+
+
+------- TRAIN CHECKS
+SELECT TOP 20 *
+FROM bronze.train;
+
+
+---will check in a mo but as all these are going into 1 table, surely it makes sense just to join it all together into one table and check it here
+---------------
+
+
+
+/* SELECT 
+    cst_id,
+    COUNT(*) 
+FROM silver.crm_cust_info
+GROUP BY cst_id
+HAVING COUNT(*) > 1 
+OR cst_id IS NULL;
+
+-- Check for Unwanted Spaces
+-- Expectation: No Results
+SELECT 
+    cst_key 
+FROM silver.crm_cust_info
+WHERE cst_key != TRIM(cst_key);
+
+-- Data Standardization & Consistency
+SELECT DISTINCT 
+    cst_marital_status 
+FROM silver.crm_cust_info;
+*/
+
+--- maybe ignore the above tests.
+--- Join it all together then test the final 
+
+
+SELECT TOP 5 * 
+FROM bronze.train;
+SELECT TOP 5 * 
+FROM bronze.gender_submission;
+SELECT TOP 5 * 
+FROM bronze.test;
+--- gs joins to test and then that can join train
+
+*/
+
+----------------------------------
+The above checks gave us the initial look at the bronze level data and allowed me to understand the data and begin analysis 
+as well as create notes for future changes and cleaning when changing to the silver and gold levels.
+----------------------------------
+
+/* 
+
+WITH test_table AS (
+
+SELECT * FROM bronze.train
+
+UNION ALL
+
+SELECT 
+	t.PassengerID,
+	gs.Survived,
+	t.Pclass,
+	t.Name,
+	t.Sex,
+	t.Age,
+	t.SibSp,
+	t.Parch,
+	t.Ticket,
+	t.Fare,
+	t.Cabin,
+	t.Embarked
+FROM bronze.test t
+JOIN bronze.gender_submission gs
+	ON t.PassengerID = gs.PassengerID
+)
+SELECT * FROM test_table;
+*/
+
+The test table gives us all 3 of the bronze tables into one overall table 
+allowing for easier testing of columns as well as ensuring all passenger data has correctly been added.
+Once established it is correct and combined data has been formatted, this can then be split into fact and dimension tables for the gold layer.
 

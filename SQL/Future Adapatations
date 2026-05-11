@@ -1,0 +1,7 @@
+Improvements for Future Projects:
+  * Once datasets have been looked at, visualise and note future relationships and tables based upon project/client criteria.
+  * Once visualised, establish the type of schema required and how tables will look (e.g., main fact table and dimensions). 
+  * Ensure table creation reflect the schema and will enable future analysis. Also ensure table types are consistent upon creation (for shared columns) to ensure it can be joined and manipulated in each table the same way.
+  * Set up folders for layers of the warehouse and keep a clean version history. Tweaks highlighted with explanation and older versions named to reflect this - ensures that upon uploading or sharing, there's no 
+    mistaking files and it's easy to find what occured and why as well as identifying where errors occured should there be issues with the final data set.
+

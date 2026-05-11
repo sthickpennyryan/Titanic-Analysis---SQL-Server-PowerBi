@@ -1,0 +1,40 @@
+/* 
+
+USE titanic;
+
+IF OBJECT_ID('silver.combined' , 'U') IS NOT NULL 
+	DROP TABLE silver_combined;
+CREATE TABLE silver_combined(
+	PassengerID INT,
+	Survived INT, 
+	Pclass INT,
+	Name VARCHAR(100),
+	Sex VARCHAR(10),
+	Age DECIMAL(10,2),
+	SibSp INT,
+	Parch INT,
+	Ticket NVARCHAR(50),
+	Fare DECIMAL(10,2),
+	Cabin NVARCHAR(30) NULL,
+	Embarked VARCHAR(20) NULL
+);
+
+
+IF OBJECT_ID('silver_cleaned' , 'U') IS NOT NULL 
+	DROP TABLE silver_cleaned;
+CREATE TABLE silver_cleaned(
+	PassengerID INT,
+	Survived INT, 
+	Pclass INT,
+	Name VARCHAR(100),
+	Sex VARCHAR(10),
+	Age DECIMAL(10,2),
+	SibSp INT,
+	Parch INT,
+	Ticket NVARCHAR(50),
+	Fare DECIMAL(10,2),
+	Cabin NVARCHAR(30) NULL,
+	Embarked VARCHAR(20) NULL
+);
+
+*/

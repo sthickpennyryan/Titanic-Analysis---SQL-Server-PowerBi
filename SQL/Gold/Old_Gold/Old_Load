@@ -1,0 +1,134 @@
+USE master;
+USE titanic;
+
+
+SELECT * FROM silver.combined
+
+CREATE OR ALTER PROCEDURE gold.load_gold AS
+BEGIN
+	DECLARE @start_time DATETIME, @end_time DATETIME, @batch_start_time DATETIME, @batch_end_time DATETIME;
+	BEGIN TRY
+		SET @batch_start_time = GETDATE();
+		PRINT '---------------------';
+		PRINT 'Loading Gold Layer';
+		PRINT '---------------------';
+
+		SET @start_time = GETDATE();
+		PRINT '>>> Truncating Table: gold.fact_passengers';
+		TRUNCATE TABLE gold.fact_passengers;
+		PRINT '>>> Inserting Data Into: gold.fact_passengers';
+
+	INSERT INTO gold.fact_passengers ( 
+			PassengerID,
+			Ticket,
+			Cabin,
+			[Status],
+			[Class],
+			Age,
+			SibSp,
+			Parch,
+			Fare)
+	SELECT 
+			PassengerID,
+			Ticket,
+			CASE 
+				WHEN Cabin IS NULL THEN 'No Data'
+				ELSE Cabin
+			END AS Cabin,
+			CASE
+				WHEN Survived = '1' THEN 'Survived'
+				ELSE 'Did Not Survive'
+				END AS Status,
+			CASE 
+				WHEN Pclass = '1' THEN 'Upper'
+				WHEN Pclass = '2' THEN 'Middle'
+				ELSE 'Lower'
+			END AS Class,
+			Age,
+			SibSp,
+			Parch,
+			Fare
+	FROM silver.combined;
+		PRINT '---------------------';
+		PRINT '>>> Truncating Table: gold.dim_passenger';
+		TRUNCATE TABLE gold.dim_passenger;
+		PRINT '>>> Inserting Data Into: gold.dim_passenger';
+
+	INSERT INTO gold.dim_passenger(
+		PassengerID,
+		Sex,
+		Title,
+		Surname,
+		AgeGroup)
+	SELECT 
+		PassengerID,
+		Sex,
+		SUBSTRING(
+		Name, (CHARINDEX(',', Name) + 2), 
+		(CHARINDEX('.', Name) - CHARINDEX(',', Name) -2)) AS Title,
+		LEFT(Name, CHARINDEX(',', Name) - 1) AS Surname,
+		CASE 
+		WHEN Age <=1 THEN 'Baby'
+		WHEN Age >= 1 AND Age < 4 THEN 'Toddler'
+		WHEN Age >= 4 AND AGE < 13 THEN 'Child'
+		WHEN Age >= 13 AND AGE < 19 THEN 'Teenager'
+		ELSE 'Adult'
+	END AS 'Age Group'
+	FROM silver.combined;
+
+		PRINT '---------------------';
+		PRINT '>>> Truncating Table: gold.dim_ticket';
+		TRUNCATE TABLE gold.dim_ticket;
+		PRINT '>>> Inserting Data Into: gold.dim_ticket';
+
+	INSERT INTO gold.dim_ticket (
+		Ticket,
+		Fare,
+		Embarked)
+	SELECT 
+		Ticket,
+		MAX(Fare) AS Fare,
+		MAX(Embarked) AS Embarked
+	FROM silver.combined
+	GROUP BY Ticket;
+
+		SET @batch_end_time = GETDATE();
+		PRINT '>>> Load Duration: ' + CAST(DATEDIFF(second, @start_time, @end_time) AS VARCHAR) + ' seconds';
+		PRINT '---------------------';
+
+	END TRY
+		BEGIN CATCH 
+			PRINT '---------------------';
+			PRINT 'Error Occured During Loading Gold Layer';
+			PRINT 'Error Message' + ERROR_MESSAGE();
+			PRINT 'Error Message' + CAST(ERROR_NUMBER() AS VARCHAR);
+			PRINT 'Error Message' + CAST(ERROR_STATE() AS VARCHAR);
+			PRINT '---------------------'
+
+		END CATCH
+	END
+
+EXEC gold.load_gold;
+
+--- Above is the load that works
+------------------------
+CREATE OR ALTER VIEW gold.vw_passenger_overall AS
+	SELECT 
+		f.PassengerID,
+		f.[Status],
+		f.[Class],
+		f.Age,
+		f.SibSp,
+		f.Parch,
+		f.Fare,
+		d.Sex,
+		d.Title,
+		d.Surname,
+		d.AgeGroup,
+		f.Cabin,
+		t.Embarked
+	FROM gold.fact_passengers f
+	LEFT JOIN gold.dim_passenger d
+		ON f.PassengerID = d.PassengerID
+	LEFT JOIN gold.dim_ticket t
+		ON f.Ticket = t.Ticket

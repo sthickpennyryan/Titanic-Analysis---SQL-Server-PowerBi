@@ -1,7 +1,6 @@
-NOTE FOR ME:
-RECHECK THE EXPLANATION. IT MAY BE BETTER TO HIGHLIGHT IT HERE AS WELL
---- THIS ALSO MAKE NOT MAKE SENSE AND IS MORE OF AN EDA FOR BRONZE LAYER. FUTURE CHECKS WERE SILVER.
-
+Checks below checked the state of the data prior to transforming to be added into silver layer. 
+Furthermore, a test combination of the data was done. However, due to table type differences, it returned rows as not matching. 
+Upon changing those tables it returned matching and I was able to combine and ensure it was all correct for the silver layer.
 
 /* 
 
@@ -165,52 +164,91 @@ SELECT TOP 20 *
 FROM bronze.train;
 
 
----will check in a mo but as all these are going into 1 table, surely it makes sense just to join it all together into one table and check it here
----------------
 
-
-
-/* SELECT 
-    cst_id,
-    COUNT(*) 
-FROM silver.crm_cust_info
-GROUP BY cst_id
-HAVING COUNT(*) > 1 
-OR cst_id IS NULL;
-
--- Check for Unwanted Spaces
--- Expectation: No Results
-SELECT 
-    cst_key 
-FROM silver.crm_cust_info
-WHERE cst_key != TRIM(cst_key);
-
--- Data Standardization & Consistency
-SELECT DISTINCT 
-    cst_marital_status 
-FROM silver.crm_cust_info;
-*/
-
---- maybe ignore the above tests.
---- Join it all together then test the final 
-
-
-SELECT TOP 5 * 
-FROM bronze.train;
-SELECT TOP 5 * 
-FROM bronze.gender_submission;
-SELECT TOP 5 * 
-FROM bronze.test;
---- gs joins to test and then that can join train
-
-*/
 
 ----------------------------------
 The above checks gave us the initial look at the bronze level data and allowed me to understand the data and begin analysis 
 as well as create notes for future changes and cleaning when changing to the silver and gold levels.
 ----------------------------------
-
+Below checks ensure that combining of the tables returns the correct information. 
+However, due to table type differences, it returned rows as not matching. Upon changing those tables it returned matching and I was able to combine and ensure it was all correct for the silver layer.
 /* 
+
+WITH test_table AS (
+SELECT * FROM bronze.train
+
+UNION ALL
+
+SELECT 
+	t.PassengerID,
+	gs.Survived,
+	t.Pclass,
+	t.Name,
+	t.Sex,
+	t.Age,
+	t.SibSp,
+	t.Parch,
+	t.Ticket,
+	t.Fare,
+	t.Cabin,
+	t.Embarked
+FROM bronze.test t
+JOIN bronze.gender_submission gs
+	ON t.PassengerID = gs.PassengerID
+)
+SELECT 
+	COUNT(*) duplicate_count,
+	PassengerID
+FROM test_table	
+GROUP BY PassengerID
+HAVING COUNT(*) > 1;
+--- checking for duplicate passengerId's
+
+
+CREATE TABLE #TempTable
+	(
+	PassengerID INT,
+	Survived INT,
+	Pclass INT,
+	Name VARCHAR(100),
+	Sex VARCHAR(10),
+	Age INT,
+	SibSp INT,
+	Parch INT,
+	Ticket NVARCHAR(50),
+	Fare FLOAT,
+	Cabin NVARCHAR(30),
+	Embarked VARCHAR(5)
+	);
+
+
+WITH test_table AS (
+	SELECT * FROM bronze.train
+
+	UNION ALL
+
+	SELECT 
+		t.PassengerID,
+		gs.Survived,
+		t.Pclass,
+		t.Name,
+		t.Sex,
+		t.Age,
+		t.SibSp,
+		t.Parch,
+		t.Ticket,
+		t.Fare,
+		t.Cabin,
+		t.Embarked
+FROM bronze.test t
+JOIN bronze.gender_submission gs
+	ON t.PassengerID = gs.PassengerID
+)
+INSERT INTO #TempTable
+SELECT *
+FROM test_table
+
+SELECT * FROM #TempTable;
 
 WITH test_table AS (
 
@@ -236,7 +274,170 @@ JOIN bronze.gender_submission gs
 	ON t.PassengerID = gs.PassengerID
 )
 SELECT * FROM test_table;
-*/
+
+--- checking they are the same
+WITH test_table AS (
+    SELECT * FROM bronze.train
+
+	UNION ALL
+
+	SELECT 
+		t.PassengerID,
+		gs.Survived,
+		t.Pclass,
+		t.Name,
+		t.Sex,
+		t.Age,
+		t.SibSp,
+		t.Parch,
+		t.Ticket,
+		t.Fare,
+		t.Cabin,
+		t.Embarked
+	FROM bronze.test t
+	JOIN bronze.gender_submission gs
+		ON t.PassengerID = gs.PassengerID
+)
+SELECT * 
+FROM test_table
+
+EXCEPT
+
+SELECT * 
+FROM #TempTable;
+--- returned 45 rows that are not identical
+
+
+
+WITH test_table AS (
+    SELECT * FROM bronze.train
+
+	UNION ALL
+
+	SELECT 
+		t.PassengerID,
+		gs.Survived,
+		t.Pclass,
+		t.Name,
+		t.Sex,
+		t.Age,
+		t.SibSp,
+		t.Parch,
+		t.Ticket,
+		t.Fare,
+		t.Cabin,
+		t.Embarked
+	FROM bronze.test t
+	JOIN bronze.gender_submission gs
+		ON t.PassengerID = gs.PassengerID
+)
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT * FROM test_table
+            EXCEPT
+            SELECT * FROM #TempTable
+        )
+        OR EXISTS (
+            SELECT * FROM #TempTable
+            EXCEPT
+            SELECT * FROM test_table
+        )
+        THEN 'NOT MATCHING'
+        ELSE 'MATCHING'
+    END AS Result;
+--- returned not matching. on looking, the datatypes are different in my tables resulting in the non-match
+--- due to load errors on table 'train' I changed the datatypes. This has resulted in mismatch. Recreate tables, inc temp table should result matching following that.
+
+IF OBJECT_ID('#TempTable' , 'U') IS NOT NULL 
+	DROP TABLE #TempTable;
+CREATE TABLE #TempTable
+	(
+	PassengerID INT,
+	Survived INT,
+	Pclass INT,
+	Name VARCHAR(100),
+	Sex VARCHAR(10),
+	Age FLOAT NULL,
+	SibSp INT,
+	Parch INT,
+	Ticket NVARCHAR(50),
+	Fare FLOAT,
+	Cabin NVARCHAR(30) NULL,
+	Embarked VARCHAR(5) NULL
+	);
+SELECT * FROM #TempTable
+--- TABLE created to match the bronze datatypes
+WITH test_table AS (
+	SELECT * FROM bronze.train
+
+	UNION ALL
+
+	SELECT 
+		t.PassengerID,
+		gs.Survived,
+		t.Pclass,
+		t.Name,
+		t.Sex,
+		t.Age,
+		t.SibSp,
+		t.Parch,
+		t.Ticket,
+		t.Fare,
+		t.Cabin,
+		t.Embarked
+FROM bronze.test t
+JOIN bronze.gender_submission gs
+	ON t.PassengerID = gs.PassengerID
+)
+INSERT INTO #TempTable
+SELECT *
+FROM test_table
+
+SELECT * FROM #TempTable;
+--- temptable now populated.
+--- retest to see if matching
+
+WITH test_table AS (
+    SELECT * FROM bronze.train
+
+	UNION ALL
+
+	SELECT 
+		t.PassengerID,
+		gs.Survived,
+		t.Pclass,
+		t.Name,
+		t.Sex,
+		t.Age,
+		t.SibSp,
+		t.Parch,
+		t.Ticket,
+		t.Fare,
+		t.Cabin,
+		t.Embarked
+	FROM bronze.test t
+	JOIN bronze.gender_submission gs
+		ON t.PassengerID = gs.PassengerID
+)
+SELECT 
+    CASE 
+        WHEN EXISTS (
+            SELECT * FROM test_table
+            EXCEPT
+            SELECT * FROM #TempTable
+        )
+        OR EXISTS (
+            SELECT * FROM #TempTable
+            EXCEPT
+            SELECT * FROM test_table
+        )
+        THEN 'NOT MATCHING'
+        ELSE 'MATCHING'
+    END AS Result;
+	--- seeing if there is a scenario where rows exist in one table but not the other and vise versa
+	--- RESULT OF MATCHING --- THE CTE IS THE SAME AS THE TEMP TABLE AND ALL DATATYPES ARE THE SAME
+--- CAN NOW USE TEMPTABLE TO DO CHECKS
 
 The test table gives us all 3 of the bronze tables into one overall table 
 allowing for easier testing of columns as well as ensuring all passenger data has correctly been added.

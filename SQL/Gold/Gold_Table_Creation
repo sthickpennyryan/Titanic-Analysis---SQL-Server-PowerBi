@@ -1,0 +1,130 @@
+---- previous gold tables didn't work with powerbi and relationships. Did not match star schema
+
+USE titanic;
+
+SELECT * FROM silver.combined
+
+IF OBJECT_ID('gold.fact_table', 'U') IS NOT NULL
+	DROP TABLE gold.fact_table;
+CREATE TABLE gold.fact_table (
+		PassengerID INT PRIMARY KEY,
+		Ticket VARCHAR(50),
+		[Class] VARCHAR(20),
+		Sex VARCHAR(20),
+		Age INT,
+		Fare DECIMAL(10,2),
+		SibSp INT,
+		Parch INT,
+		[Status] INT,
+		Embarked VARCHAR(50),
+		AgeGroup VARCHAR(20),
+		)
+INSERT INTO gold.fact_table (
+		PassengerID,
+		Ticket,
+		[Class],
+		Sex,
+		Age,
+		Fare,
+		SibSp,
+		Parch,
+		[Status],
+		Embarked,
+		AgeGroup
+		)
+SELECT 
+		PassengerID,
+		Ticket,
+		CASE 
+				WHEN Pclass = '1' THEN 'Upper'
+				WHEN Pclass = '2' THEN 'Middle'
+				ELSE 'Lower'
+		END AS Class,
+		Sex,
+		Age,
+		Fare,
+		SibSp,
+		Parch,
+		Survived AS [Status],
+		Embarked,
+		CASE 
+			WHEN Age <=1 THEN 'Baby'
+			WHEN Age >= 1 AND Age < 4 THEN 'Toddler'
+			WHEN Age >= 4 AND AGE < 13 THEN 'Child'
+			WHEN Age >= 13 AND AGE < 19 THEN 'Teenager'
+			ELSE 'Adult'
+		END AS 'Age Group'
+		FROM silver.combined
+
+--------------------------------------
+IF OBJECT_ID('gold.dim_pass', 'U') IS NOT NULL
+	DROP TABLE gold.dim_pass;
+CREATE TABLE gold.dim_pass(
+		PassengerID INT PRIMARY KEY,
+		Sex VARCHAR(20),
+		[Class] VARCHAR(20),
+		Title VARCHAR(50),
+		AgeGroup VARCHAR(20),
+		Surname VARCHAR(100),
+		)
+	INSERT INTO gold.dim_pass (
+		PassengerID,
+		Sex,
+		[Class],
+		Title,
+		Surname,
+		AgeGroup
+		)
+	SELECT 
+		PassengerID,
+		Sex,
+		Pclass AS [Class],
+		SUBSTRING(
+		Name, (CHARINDEX(',', Name) + 2), 
+		(CHARINDEX('.', Name) - CHARINDEX(',', Name) -2)) AS Title,
+		LEFT(Name, CHARINDEX(',', Name) - 1) AS Surname,
+		CASE 
+			WHEN Age <=1 THEN 'Baby'
+			WHEN Age >= 1 AND Age < 4 THEN 'Toddler'
+			WHEN Age >= 4 AND AGE < 13 THEN 'Child'
+			WHEN Age >= 13 AND AGE < 19 THEN 'Teenager'
+			ELSE 'Adult'
+		END AS 'Age Group'
+
+----------------------------------
+--- double checking powerbi visual data
+--- I want % survived based on age group
+WITH query_table AS (
+	SELECT 
+		COUNT(*) Total_Passengers, 
+		AgeGroup,
+		Status
+	FROM gold.fact_table
+	GROUP BY AgeGroup, Status
+	--- ORDER BY AgeGroup ORDER BY DOESN'T WORK IN VIEWS BUT IT WAS THERE TO ENSURE THE DATA WAS FINE WHEN CHECKING THE SELECT ORDER BY AgeGroup;
+	)
+	SELECT *
+	FROM (
+		SELECT	
+			AgeGroup,
+			Status,
+			Total_Passengers,
+			CAST(
+			ROUND((Total_Passengers * 100.0) / SUM(Total_Passengers) OVER (PARTITION BY AgeGroup), 2) AS DECIMAL(4, 2)) AS Survival_Percentage --- changed to 2.dp
+	FROM query_table 
+	) t
+	WHERE Status = 1
+	ORDER BY Survival_Percentage DESC;
+
+---- this is more concise but was chatgpt tweak to what I did above 
+--- learn from it and can make more concise
+	SELECT 
+    AgeGroup,
+    ROUND(
+        100.0 * SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) 
+        / COUNT(*),
+        2
+    ) AS Survival_Percentage
+FROM gold.fact_table
+GROUP BY AgeGroup
+ORDER BY Survival_Percentage DESC;

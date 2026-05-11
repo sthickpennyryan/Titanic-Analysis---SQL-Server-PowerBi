@@ -5,7 +5,7 @@ This project demonstrates practical skills in:
 Data engineering fundamentals (SQL Server)
 Data cleaning and validation (SQL Server)
 Analytical thinking (SQL Server + PowerBi)
-Data visualisation (PowerBi)
+Data visualisation (PowerBi with DAX)
 
 Project Overview:
 This project uses the following Kaggle dataset: https://www.kaggle.com/competitions/titanic/data. 

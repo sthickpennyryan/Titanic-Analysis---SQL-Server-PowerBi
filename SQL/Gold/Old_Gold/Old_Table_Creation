@@ -1,0 +1,37 @@
+========================
+At the time I believed these to be the appropriate tables for future analysis. However, upon discovering issues with relationships and visuals, I ended up creating different gold layer tables that faciliated PowerBi.
+
+IF OBJECT_ID('gold.fact_passengers', 'U') IS NOT NULL
+	DROP TABLE gold.fact_passengers;
+
+GO
+
+CREATE TABLE gold.fact_passengers (
+    PassengerID INT PRIMARY KEY,
+    Ticket VARCHAR(50),
+	Cabin VARCHAR(50),
+    [Status] VARCHAR(20),
+    [Class] VARCHAR(20),
+    Age INT,
+    SibSp INT,
+    Parch INT,
+    Fare DECIMAL(10,2)
+);
+
+IF OBJECT_ID('gold.dim_passenger', 'U') IS NOT NULL
+	DROP TABLE gold.dim_passenger
+CREATE TABLE gold.dim_passenger (
+    PassengerID INT PRIMARY KEY,
+    Sex VARCHAR(10),
+    Title VARCHAR(50),
+    Surname VARCHAR(100),
+    AgeGroup VARCHAR(50)
+);
+
+IF OBJECT_ID('gold.dim_ticket', 'U') IS NOT NULL
+	DROP TABLE gold.dim_ticket
+CREATE TABLE gold.dim_ticket (
+    Ticket VARCHAR(50) PRIMARY KEY,
+	Fare DECIMAL(10,2),
+    Embarked VARCHAR(20)
+);

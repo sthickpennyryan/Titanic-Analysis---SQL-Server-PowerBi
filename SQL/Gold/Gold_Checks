@@ -1,0 +1,182 @@
+=============================
+The below checks ensured that following loading data from silver into gold, all data was still correct. No errors, missing values or Nulls had crept in. 
+No issues identified this the data and this was used later for a load of the data. 
+=============================
+
+/* 
+USE titanic;
+
+SELECT * FROM gold.vw_passenger_overall
+
+SELECT COUNT(*) FROM gold.vw_passenger_overall
+GROUP BY Status
+
+/*
+'£' + CONVERT(VARCHAR(20), CAST(f.Fare AS DECIMAL(10,2))) AS Fare
+*/ --- if it wants to look like it has £ associated with. otherwise remain as it is
+SELECT TOP 10 * 
+FROM gold.dim_passenger	
+
+SELECT TOP 10 * 
+FROM gold.fact_passengers
+
+SELECT TOP 10 * 
+FROM gold.dim_ticket	
+
+---------------------- gold.dim_passenger checks
+SELECT TOP 10 * 
+FROM gold.dim_passenger	
+---------
+
+SELECT 
+	PassengerID,
+	COUNT(*)
+FROM gold.dim_passenger
+GROUP BY PassengerID
+HAVING COUNT(*) > 1;
+--- no duplicate passengerID's
+
+SELECT 
+	DISTINCT Sex
+FROM gold.dim_passenger;
+--- only male/female
+
+SELECT 
+	DISTINCT Title
+FROM gold.dim_passenger
+--- some weird titles -- need to look into
+
+SELECT 
+	DISTINCT Title
+FROM gold.dim_passenger
+WHERE Title IS NULL;
+--- no nulls
+
+SELECT 
+	DISTINCT AgeGroup
+FROM gold.dim_passenger;
+--- no nulls, groups as expected
+----------------------------------------------------------------
+
+
+
+----------------------- gold.fact_passengers checks
+SELECT TOP 10 * 
+FROM gold.fact_passengers;
+
+SELECT 
+	PassengerID,
+	COUNT(*)
+FROM gold.fact_passengers
+GROUP BY PassengerID
+HAVING COUNT(*) > 1;
+--- no duplicate passengerID's
+
+SELECT 
+	Ticket
+FROM gold.fact_passengers
+WHERE Ticket IS NULL;
+--- no null tickets
+
+SELECT 
+	Cabin
+FROM gold.fact_passengers
+WHERE Cabin IS NULL;
+--- No nulls
+
+SELECT 
+	DISTINCT Status
+FROM gold.fact_passengers
+--- Only 2 Status' as expected
+
+SELECT 
+	DISTINCT Class
+FROM gold.fact_passengers
+--- only 3 classes as expected
+
+SELECT 
+	DISTINCT Age
+FROM gold.fact_passengers
+WHERE Age IS NULL;
+--- no nulls
+
+SELECT 
+	MAX(Age) AS 'Oldest Passenger',
+	MIN(Age) AS 'Youngest Passenger'
+FROM gold.fact_passengers;
+--- 0 as youngest, 80 as oldest. Nothing out of the ordinary
+
+SELECT 
+	DISTINCT SibSp
+FROM gold.fact_passengers
+--- no nulls, no extreme highs
+
+SELECT 
+	DISTINCT Parch
+FROM gold.fact_passengers
+--- no nulls, no extreme highs
+
+SELECT 
+	DISTINCT Fare
+FROM gold.fact_passengers
+ORDER BY Fare;
+
+SELECT
+	MAX(Fare) AS 'Highest Fare',
+	MIN(Fare) AS 'Lowest Fare'
+FROM gold.fact_passengers
+--- previous null changed to 0.00 on assumption ticket was free due to gifted or awarded. 
+
+------------------------
+
+
+------------------------ gold.dim_ticket checks
+SELECT TOP 10 * 
+FROM gold.dim_ticket
+----
+
+SELECT 
+	Ticket,
+	COUNT(*) AS 'Unique Ticket Number'
+FROM gold.dim_ticket
+GROUP BY Ticket
+HAVING COUNT(*) > 1;
+--- load made tickets unique (passengers shared tickets so rejoin if needing info relating to that). Should be no tickets with a count higher than 1 and isn't
+
+SELECT
+	Fare
+FROM gold.dim_ticket
+WHERE Fare IS NULL;
+--- no nulls
+
+SELECT
+	MAX(Fare) AS 'Highest Fare',
+	MIN(Fare) AS 'Lowest Fare'
+FROM gold.dim_ticket;
+--- fares seem fine with no extremes
+
+SELECT 
+	DISTINCT Embarked
+FROM gold.dim_ticket;
+--- 4 unique values as expected, no nulls
+-------------------
+
+
+SELECT * FROM gold.vw_passenger_overall
+WHERE Sex = 'Male' 
+AND
+Status = 'Survived';
+
+SELECT 
+	COUNT(Status),
+	Class
+FROM gold.vw_passenger_overall
+GROUP BY Status, Class
+
+SELECT
+	COUNT(Status = "Survived") AS Survived,
+	COUNT(Status = "Survived") AS 'Did Not Survive',
+	Class
+FROM gold.vw_passenger_overall
+GROUP BY Class
+*/

@@ -1,0 +1,79 @@
+============
+Due to a datatype issue later in the project, I went back and tweaked the data types in this layer so they were unique and changed the type in the later code.
+As such, the tables are slightly different to the original. 
+===========
+
+--- Check if the database exists/drop/altar when recreating - For test purposes only
+
+USE master;
+
+GO
+
+IF EXISTS(SELECT 1 FROM sys.databases WHERE NAME = 'titanic')
+BEGIN
+	ALTER DATABASE titanic SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+	DROP DATABASE titanic;
+END;
+GO
+
+--- creating the database after deleting the previous text
+
+CREATE DATABASE titanic;
+
+USE titanic;
+
+-- bronze schema: to load and house the raw data
+-- silver data: to clean and add new columns if needed
+-- gold: business ready data
+CREATE SCHEMA bronze;
+GO
+CREATE SCHEMA silver;
+GO
+CREATE SCHEMA gold;
+GO
+
+--- table creation
+
+--- this table contains 'survived' data for passengers 891-1309
+IF OBJECT_ID('bronze.gender_submission' , 'U') IS NOT NULL 
+	DROP TABLE bronze.gender_submission;
+CREATE TABLE bronze.gender_submission(
+	PassengerID INT,
+	Survived INT  
+);
+
+
+--- this table has passengers 1-891
+IF OBJECT_ID('bronze.train' , 'U') IS NOT NULL 
+	DROP TABLE bronze.train;
+CREATE TABLE bronze.train(
+	PassengerID INT,
+	Survived INT,
+	Pclass INT,
+	Name VARCHAR(100), --- =MAX(LEN(this_column_in_excel)) = 82
+	Sex VARCHAR(10),
+	Age FLOAT NULL,
+	SibSp INT,
+	Parch INT,
+	Ticket NVARCHAR(50), --- =MAX(LEN(this_column_in_excel)) = 18
+	Fare FLOAT, --- longest number is 8 in excel and 4 dp longest
+	Cabin NVARCHAR(30) NULL, --- =MAX(LEN(this_column_in_excel)) = 15
+	Embarked VARCHAR(5) NULL
+);
+
+--- this table has passengers 891-1309 but is missing 'survived' data
+IF OBJECT_ID('bronze.test' , 'U') IS NOT NULL 
+	DROP TABLE bronze.test;
+CREATE TABLE bronze.test(
+	PassengerID INT,
+	Pclass INT,
+	Name VARCHAR(100), --- =MAX(LEN(this_column_in_excel)) = 63
+	Sex VARCHAR(10),
+	Age FLOAT NULL, --- brief eda saw longest of 4 with 2dp
+	SibSp INT,
+	Parch INT,
+	Ticket NVARCHAR(50), --- =MAX(LEN(this_column_in_excel)) = 18
+	Fare FLOAT, --- longest number is 8 in excel and 4 dp longest
+	Cabin NVARCHAR(30) NULL, --- =MAX(LEN(this_column_in_excel)) = 15
+	Embarked VARCHAR(5) NULL
+);

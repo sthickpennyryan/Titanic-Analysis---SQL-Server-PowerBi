@@ -1,0 +1,17 @@
+Colour Schemes for Powerbi:
+
+upper: #0D6ABF
+middle: #41A4FF
+lower: #70BBFF
+
+survived: #0BEB61
+did not survive: #FF1010
+
+
+male: #2E86DE
+female: #8E44AD
+
+
+% Survived: #12239E
+
+On visuals that had multiple aspects, where possible their colours were used. If not, tooltips highlighted aspects that were not coloured.

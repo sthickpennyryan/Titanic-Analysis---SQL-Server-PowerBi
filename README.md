@@ -1,11 +1,14 @@
 Titanic Data Pipeline & Analysis Project
 
-This project demonstrates practical skills in:
+This project utilised:
+SQL - SQL Server:
+  * Data engineering fundamentals (SQL Server)
+  * Data cleaning and validation (SQL Server)
 
-Data engineering fundamentals (SQL Server)
-Data cleaning and validation (SQL Server)
-Analytical thinking (SQL Server + PowerBi)
-Data visualisation (PowerBi with DAX)
+PowerBi with DAX:
+  * Data visualisation
+  * Analytical thinking (SQL Server + PowerBi)
+
 
 Project Overview:
 This project uses the following Kaggle dataset: https://www.kaggle.com/competitions/titanic/data. 
